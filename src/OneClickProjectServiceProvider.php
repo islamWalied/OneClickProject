@@ -14,12 +14,12 @@ class OneClickProjectServiceProvider extends ServiceProvider
             ]);
         }
         $this->publishes([
-            '../'. __DIR__.'/Traits' => app_path('Traits'),
+           __DIR__.'/Traits' => app_path('Traits'),
         ], 'traits');
 
         // Publish helpers
         $this->publishes([
-            '../'.__DIR__.'/Helpers' => app_path('Helpers'),
+            __DIR__.'/Helpers' => app_path('Helpers'),
         ], 'helpers');
     }
 

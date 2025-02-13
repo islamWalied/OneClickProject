@@ -1,14 +1,15 @@
 <?php
 
-namespace App\Traits;
-use App\Traits\ResponseTrait;
+namespace IslamWalied\OneClickProject\Traits;
 use App\Mail\VerifyMail;
 use App\Mail\VerifyMailWithToken;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use function App\Traits\__;
+use function App\Traits\now;
 
 trait EmailVerifyTrait
 {

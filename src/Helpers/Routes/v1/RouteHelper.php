@@ -1,9 +1,10 @@
 <?php
 
-namespace App\Helpers\Routes\v1;
+namespace IslamWalied\OneClickProject\Helpers\Routes\v1;
 
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+
 class RouteHelper
 {
     public static function includeRouteFiles(string $folder)

@@ -1,10 +1,11 @@
 <?php
 
-namespace App\Traits;
+namespace IslamWalied\OneClickProject\Traits;
 
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Response;
+use function App\Traits\abort;
 
 trait ResponseTrait
 {

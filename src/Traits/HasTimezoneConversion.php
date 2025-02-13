@@ -1,9 +1,11 @@
 <?php
 
-namespace App\Traits;
+namespace IslamWalied\OneClickProject\Traits;
 
-use DateTimeInterface;
 use Carbon\Carbon;
+use DateTimeInterface;
+use function App\Traits\config;
+use function App\Traits\request;
 
 trait HasTimezoneConversion
 {

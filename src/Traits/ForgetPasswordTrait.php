@@ -1,13 +1,15 @@
 <?php
 
-namespace App\Traits;
+namespace IslamWalied\OneClickProject\Traits;
 
 use App\Mail\OTPMail;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use function App\Traits\__;
+use function App\Traits\now;
 
 trait ForgetPasswordTrait
 {
