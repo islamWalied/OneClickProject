@@ -426,7 +426,7 @@ namespace App\Services\Implementation;
 
 class BaseServiceImpl
 {
-    // Implement base service methods here if needed
+    use ResponseTrait.php, ImageTrait;
 }
 EOF;
 
