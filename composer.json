@@ -1,6 +1,6 @@
 {
   "name": "islamwalied/one-click-project",
-  "description": "A Laravel package for custom command",
+  "description": "A Laravel package to generate complete project structure with repository pattern",
   "type": "library",
   "license": "MIT",
   "authors": [
@@ -29,5 +29,10 @@
         "IslamWalied\\OneClickProject\\OneClickProjectServiceProvider"
       ]
     }
+  },
+  "scripts": {
+    "post-install-cmd": [
+      "@php artisan install:api"
+    ]
   }
 }

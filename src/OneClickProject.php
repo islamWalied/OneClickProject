@@ -25,6 +25,7 @@ class OneClickProject extends Command
             $this->generateRequestClasses($name);
             $this->createApiFolderStructure();
             $this->generateApiRoutes($name);
+            $this->updateApiRoutesFile();
             $this->info('Project generation completed!');
         }
     }
@@ -1102,5 +1103,27 @@ Route::middleware(['cors','lang'])->prefix('v1/')->group(function () {
     });
 });
 EOF;
+    }
+    protected function updateApiRoutesFile()
+    {
+        $apiRoutesPath = base_path('routes/api.php');
+
+        if (!File::exists($apiRoutesPath)) {
+            $this->error('The api.php file does not exist in the routes directory!');
+            return;
+        }
+
+        // Check if the line already exists to avoid duplication
+        $content = File::get($apiRoutesPath);
+        if (str_contains($content, 'RouteHelper::includeRouteFiles')) {
+            $this->info('The api.php file already includes the RouteHelper line.');
+            return;
+        }
+
+        // Append the RouteHelper line to the file
+        $routeHelperLine = "<?php\n\nuse App\Helpers\Routes\v1\RouteHelper;\n\nRouteHelper::includeRouteFiles(__DIR__ . '/api/');\n";
+        File::append($apiRoutesPath, $routeHelperLine);
+
+        $this->info('The api.php file has been updated to include RouteHelper.');
     }
 }
