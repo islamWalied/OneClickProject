@@ -1,0 +1,33 @@
+{
+  "name": "islamwalied/one-click-project",
+  "description": "A Laravel package for custom command",
+  "type": "library",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Islam Walied",
+      "email": "islam.walied96@gmail.com"
+    }
+  ],
+  "minimum-stability": "stable",
+  "prefer-stable": true,
+  "require": {
+    "php": "^8.0",
+    "illuminate/support": "*"
+  },
+  "autoload": {
+    "psr-4": {
+      "IslamWalied\\OneClickProject\\": "src/"
+    },
+    "files": [
+      "src/Helpers/Routes/v1/RouteHelper.php"
+    ]
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "IslamWalied\\OneClickProject\\OneClickProjectServiceProvider"
+      ]
+    }
+  }
+}
