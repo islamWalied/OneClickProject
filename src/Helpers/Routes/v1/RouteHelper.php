@@ -1,6 +1,6 @@
 <?php
 
-namespace IslamWalied\OneClickProject\Helpers\Routes\v1;
+namespace App\Helpers\Routes\v1;
 
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;

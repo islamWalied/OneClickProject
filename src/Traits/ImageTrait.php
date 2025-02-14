@@ -1,6 +1,6 @@
 <?php
 
-namespace IslamWalied\OneClickProject\Traits;
+namespace App\Traits;
 
 
 use Illuminate\Http\Request;
