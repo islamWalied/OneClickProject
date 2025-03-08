@@ -1,9 +1,5 @@
 # One Click Project
 
-[![Latest Version on Packagist](https://img.shields.io/packagist/v/islamwalied/one-click-project.svg?style=flat-square)](https://packagist.org/packages/islamwalied/one-click-project)
-[![Total Downloads](https://img.shields.io/packagist/dt/islamwalied/one-click-project.svg?style=flat-square)](https://packagist.org/packages/islamwalied/one-click-project)
-[![License](https://img.shields.io/packagist/l/islamwalied/one-click-project.svg?style=flat-square)](https://packagist.org/packages/islamwalied/one-click-project)
-
 **One Click Project** is a powerful Laravel package designed to streamline your development process by generating a complete project structure with a single Artisan command. It creates a model, migration, repository (with a base repository pattern), service layer, resource, controller, request classes, and API routes—all tailored to your specifications.
 
 ## Features
