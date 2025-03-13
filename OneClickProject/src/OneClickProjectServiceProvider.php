@@ -14,20 +14,21 @@ class OneClickProjectServiceProvider extends BaseServiceProvider
                 OneClickProject::class,
             ]);
 
-            // Publish Helpers
             $this->publishes([
                 __DIR__ . '/Helpers' => app_path('Helpers'),
             ], 'helpers');
 
-            // Publish Traits
             $this->publishes([
                 __DIR__ . '/Traits' => app_path('Traits'),
             ], 'traits');
 
-            // Publish Middleware
             $this->publishes([
                 __DIR__ . '/Middleware' => app_path('Http/Middleware'),
             ], 'middleware');
+
+            $this->publishes([
+                __DIR__ . '/Logging' => app_path('Logging'),
+            ], 'logging');
         }
     }
 }

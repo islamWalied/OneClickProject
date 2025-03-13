@@ -2,8 +2,8 @@
 
 namespace App\Traits;
 
-use Carbon\Carbon;
 use DateTimeInterface;
+use Carbon\Carbon;
 
 trait HasTimezoneConversion
 {
@@ -18,7 +18,7 @@ trait HasTimezoneConversion
         }
     }
 
-    private function convertToUserTimezone($datetime)
+    private function convertToUserTimezone($datetime, string $format = 'Y-m-d H:i:s')
     {
         if (!$datetime) {
             return null;
@@ -27,17 +27,17 @@ trait HasTimezoneConversion
         $userTimezone = $this->getUserTimezone();
 
         if ($datetime instanceof Carbon) {
-            return $datetime->copy()->setTimezone($userTimezone)->format('Y-m-d H:i:s');
+            return $datetime->copy()->setTimezone($userTimezone)->format($format);
         }
 
         if ($datetime instanceof \DateTime) {
-            return Carbon::instance($datetime)->setTimezone($userTimezone)->format('Y-m-d H:i:s');
+            return Carbon::instance($datetime)->setTimezone($userTimezone)->format($format);
         }
 
         try {
             return Carbon::parse($datetime)
                 ->setTimezone($userTimezone)
-                ->format('Y-m-d H:i:s');
+                ->format($format);
         } catch (\Exception $e) {
             return $datetime;
         }
@@ -52,10 +52,26 @@ trait HasTimezoneConversion
     {
         $value = parent::getAttribute($key);
 
-        // Check if the attribute is a datetime field
         if ($value instanceof \DateTime ||
-            (isset($this->casts[$key]) && in_array($this->casts[$key], ['datetime', 'date']))) {
-            return $this->convertToUserTimezone($value);
+            (isset($this->casts[$key]) && in_array($this->casts[$key], ['datetime', 'date', 'time']))) {
+            $format = 'Y-m-d H:i:s';
+
+            if (isset($this->casts[$key])) {
+                if ($this->casts[$key] === 'time') {
+                    $format = 'H:i:s'; // Only time for 'time' cast
+                } elseif (is_array($this->casts[$key]) && isset($this->casts[$key]['format'])) {
+                    $format = $this->casts[$key]['format'];
+                } elseif (strpos($this->casts[$key], ':') !== false) {
+                    $parts = explode(':', $this->casts[$key], 2);
+                    if ($parts[0] === 'datetime' && isset($parts[1])) {
+                        $format = $parts[1];
+                    } elseif ($parts[0] === 'time' && isset($parts[1])) {
+                        $format = $parts[1];
+                    }
+                }
+            }
+
+            return $this->convertToUserTimezone($value, $format);
         }
 
         return $value;

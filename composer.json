@@ -3,13 +3,14 @@
   "description": "A Laravel package to generate complete project structure with repository pattern",
   "type": "library",
   "license": "MIT",
+  "versions": "1.0.3",
   "authors": [
     {
       "name": "Islam Walied",
       "email": "islam.walied96@gmail.com"
     }
   ],
-  "minimum-stability": "stable",
+  "minimum-stability": "dev",
   "prefer-stable": true,
   "require": {
     "php": "^8.0",

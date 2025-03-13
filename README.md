@@ -28,6 +28,17 @@ The package will automatically register its service provider and command thanks 
 - PHP 8.0 or higher
 - Laravel 10.x or 11.x
 - Composer
+- GD Library extension for PHP (`ext-gd`)
+
+### Updating Composer Configuration
+
+Add the GD extension requirement to your `composer.json`:
+
+```json
+"require": {
+    "ext-gd": "*"
+}
+```
 
 ## Usage
 
@@ -46,7 +57,7 @@ php artisan generate:project Post
 ```
 
 #### Interactive Prompts
-1. **Model Attributes**: You’ll be asked to specify column names and types (e.g., `string`, `integer`, `foreignId`) for the model’s migration and fillable properties.
+1. **Model Attributes**: You'll be asked to specify column names and types (e.g., `string`, `integer`, `foreignId`) for the model's migration and fillable properties.
     - Example:
       ```
       Enter column name (or "done" to finish): title
@@ -66,7 +77,7 @@ php artisan generate:project Post
       ```
 
 #### Generated Structure
-After running the command, you’ll get:
+After running the command, you'll get:
 - `app/Models/Post.php` (Model with fillable attributes and relationships)
 - `database/migrations/...create_posts_table.php` (Migration with specified columns)
 - `app/Repositories/Interfaces/PostRepository.php` & `app/Repositories/Implementation/PostRepositoryImpl.php` (Repository layer)
@@ -78,10 +89,11 @@ After running the command, you’ll get:
 
 
 #### **Verified Publishing Section**:
-   - To Publish The Required Files To Use All Features You Must Use Those Commands After Installing:
-      - `php artisan vendor:publish --provider="IslamWalied\OneClickProject\OneClickProjectServiceProvider" --tag="helpers"`
-      - `php artisan vendor:publish --provider="IslamWalied\OneClickProject\OneClickProjectServiceProvider" --tag="traits"`
-      - `php artisan vendor:publish --provider="IslamWalied\OneClickProject\OneClickProjectServiceProvider" --tag="middleware"`
+- To Publish The Required Files To Use All Features You Must Use Those Commands After Installing:
+    - `php artisan vendor:publish --provider="IslamWalied\OneClickProject\OneClickProjectServiceProvider" --tag="helpers"`
+    - `php artisan vendor:publish --provider="IslamWalied\OneClickProject\OneClickProjectServiceProvider" --tag="traits"`
+    - `php artisan vendor:publish --provider="IslamWalied\OneClickProject\OneClickProjectServiceProvider" --tag="middleware"`
+    - `php artisan vendor:publish --provider="IslamWalied\OneClickProject\OneClickProjectServiceProvider" --tag="logging"`
 
 
 #### Post-Generation Steps
@@ -100,10 +112,21 @@ After running the command, you’ll get:
 
 ## Configuration
 
-No additional configuration is required out of the box. However, you can customize the generated files by modifying the package’s generator classes if needed.
+No additional configuration is required out of the box. However, you can customize the generated files by modifying the package's generator classes if needed.
 
 ### Customizing Image Storage
-The `ImageTrait` uses Laravel’s `public` disk by default. To change this, update your `filesystems.php` config or extend the trait in your application.
+The `ImageTrait` uses Laravel's `public` disk by default. To change this, update your `filesystems.php` config or extend the trait in your application.
+
+### Customizing Logging
+After publishing the logging files, you need to update your `config/logging.php` file to include the custom daily logger. To use it add this object to the end of the file:
+
+```php
+'daily_by_date' => [
+    'driver' => 'custom',
+    'via' => App\Logging\LogHandler::class,
+    'level' => 'error',
+],
+```
 
 ## API Endpoints
 
@@ -116,8 +139,8 @@ Generated routes are prefixed with `v1/` and protected by `auth:sanctum` middlew
 
 ## Notes
 
-- **RouteHelper Dependency**: The package assumes a `RouteHelper` class exists to include API route files dynamically. If your project doesn’t have this, you’ll need to manually include the generated route files in `routes/api.php` or implement a custom `RouteHelper`.
-- **Localization**: The package uses Laravel’s `__()` helper for messages (e.g., `messages.post.index_success`). Define these in your `lang` files for full support.
+- **RouteHelper Dependency**: The package assumes a `RouteHelper` class exists to include API route files dynamically. If your project doesn't have this, you'll need to manually include the generated route files in `routes/api.php` or implement a custom `RouteHelper`.
+- **Localization**: The package uses Laravel's `__()` helper for messages (e.g., `messages.post.index_success`). Define these in your `lang` files for full support.
 
 ## Contributing
 
@@ -140,5 +163,3 @@ This package is open-sourced under the [MIT License](LICENSE).
 ## Credits
 
 Developed by [Islam Walied](mailto:islam.walied96@gmail.com). Special thanks to the Laravel community for inspiration and support.
-
-

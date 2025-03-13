@@ -139,6 +139,7 @@ PHP;
         $middleware->alias([
             'lang' => App\Http\Middleware\Lang::class,
             'cors' => App\Http\Middleware\Cors::class, // Added by One Click Project
+            'throttle' => App\Http\Middleware\ThrottleRequests::class, // Added by One Click Project
         ]);
     })
 PHP;

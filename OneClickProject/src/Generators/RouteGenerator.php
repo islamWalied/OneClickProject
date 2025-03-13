@@ -61,7 +61,7 @@ class RouteGenerator
 use App\Http\Controllers\\{$name}Controller;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['cors','lang'])->prefix('v1/')->group(function () {
+Route::middleware(['cors','lang','throttle'])->prefix('v1/')->group(function () {
     Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('{$pluralName}', [{$name}Controller::class, 'index']);
         Route::get('{$pluralName}/{{$snakeCaseLower}}', [{$name}Controller::class, 'show']);
