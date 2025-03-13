@@ -16,32 +16,41 @@ class ResourceGenerator
 
     public function generate(string $name, array $attributes)
     {
-        $resourceDirectory = app_path('Http/Resources');
+        if (!$this->isValidName($name)) {
+            $this->command->error("Invalid resource name '{$name}'. Use alphanumeric characters and start with a letter.");
+            return;
+        }
 
+        $resourceDirectory = app_path('Http/Resources');
         if (!File::exists($resourceDirectory)) {
             File::makeDirectory($resourceDirectory, 0755, true);
         }
 
         $resourcePath = "{$resourceDirectory}/{$name}Resource.php";
-
         if (File::exists($resourcePath)) {
-            $this->command->error("Resource {$name}Resource already exists!");
+            $this->command->error("Resource '{$name}Resource' already exists at '{$resourcePath}'!");
             return;
         }
 
         $resourceContent = $this->generateResourceContent($name, $attributes);
         File::put($resourcePath, $resourceContent);
+        $this->command->info("Resource '{$name}Resource' created successfully!");
+    }
 
-        $this->command->info("Resource {$name}Resource created successfully!");
+    protected function isValidName(string $name): bool
+    {
+        return preg_match('/^[a-zA-Z][a-zA-Z0-9]*$/', $name) === 1;
     }
 
     protected function generateResourceContent(string $name, array $attributes): string
     {
-        $attributeMappings = [];
-        foreach (array_keys($attributes) as $attribute) {
-            $attributeMappings[] = "'{$attribute}' => \$this->{$attribute},";
+        if (empty($attributes)) {
+            $this->command->warn("No attributes provided for '{$name}' resource. Only 'id' will be included.");
         }
-        $attributeMappingsStr = implode("\n            ", $attributeMappings);
+
+        $attributeMappings = collect(array_keys($attributes))->map(fn ($attribute) =>
+        !$this->isValidName($attribute) ? null : "'{$attribute}' => \$this->{$attribute},"
+        )->filter()->implode("\n            ");
 
         return <<<EOF
 <?php
@@ -56,7 +65,7 @@ class {$name}Resource extends JsonResource
     {
         return [
             'id' => \$this->id,
-            {$attributeMappingsStr}
+            {$attributeMappings}
         ];
     }
 }

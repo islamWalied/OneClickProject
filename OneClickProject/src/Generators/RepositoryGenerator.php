@@ -16,10 +16,27 @@ class RepositoryGenerator
 
     public function generate(string $name, array $customMethods)
     {
+        if (!$this->isValidName($name)) {
+            $this->command->error("Invalid repository name '{$name}'. Use alphanumeric characters and start with a letter.");
+            return;
+        }
+
+        foreach ($customMethods as $method) {
+            if (!isset($method['name']) || !$this->isValidName($method['name'])) {
+                $this->command->error("Invalid custom method name '{$method['name']}'. Skipping.");
+                return;
+            }
+        }
+
         $this->createRepositoryStructure();
         $this->createBaseRepository();
         $this->createRepositoryFiles($name, $customMethods);
         $this->registerRepository($name);
+    }
+
+    protected function isValidName(string $name): bool
+    {
+        return preg_match('/^[a-zA-Z][a-zA-Z0-9]*$/', $name) === 1;
     }
 
     protected function createRepositoryStructure()
@@ -34,23 +51,31 @@ class RepositoryGenerator
 
     protected function createBaseRepository()
     {
-        $baseInterface = <<<'EOF'
+        $baseInterfacePath = app_path('Repositories/Interfaces/BaseRepository.php');
+        $baseImplPath = app_path('Repositories/Implementation/BaseRepositoryImpl.php');
+
+        if (File::exists($baseInterfacePath) || File::exists($baseImplPath)) {
+            $this->command->warn("Base repository files already exist. Skipping creation.");
+            return;
+        }
+
+        $baseInterface = <<<EOF
 <?php
 
 namespace App\Repositories\Interfaces;
 
 interface BaseRepository
 {
-    public function index($limit);
-    public function show($model);
-    public function findWhere(array $criteria);
-    public function store(array $data);
-    public function update($model);
-    public function delete($model);
+    public function index(\$limit);
+    public function show(\$model);
+    public function findWhere(array \$criteria);
+    public function store(array \$data);
+    public function update(\$model);
+    public function delete(\$model);
 }
 EOF;
 
-        $baseImplementation = <<<'EOF'
+        $baseImplementation = <<<EOF
 <?php
 
 namespace App\Repositories\Implementation;
@@ -60,61 +85,71 @@ use Illuminate\Database\Eloquent\Model;
 
 abstract class BaseRepositoryImpl implements BaseRepository
 {
-    protected $model;
+    protected \$model;
 
-    public function __construct(Model $model)
+    public function __construct(Model \$model)
     {
-        $this->model = $model;
+        \$this->model = \$model;
     }
 
-    public function index($limit)
+    public function index(\$limit)
     {
-        return $this->model->paginate($limit);
+        return \$this->model->paginate(\$limit);
     }
 
-    public function show($model)
+    public function show(\$model)
     {
-        return $this->model->findOrFail($model);
+        return \$this->model->findOrFail(\$model);
     }
 
-    public function findWhere(array $criteria)
+    public function findWhere(array \$criteria)
     {
-        return $this->model->where($criteria)->get();
+        return \$this->model->where(\$criteria)->get();
     }
 
-    public function store(array $data)
+    public function store(array \$data)
     {
-        return $this->model->create($data);
+        return \$this->model->create(\$data);
     }
 
-    public function update($model)
+    public function update(\$model)
     {
-        return $model->save();
+        return \$model->save();
     }
 
-    public function delete($model)
+    public function delete(\$model)
     {
-        return $model->delete();
+        return \$model->delete();
     }
 }
 EOF;
 
-        File::put(app_path('Repositories/Interfaces/BaseRepository.php'), $baseInterface);
-        File::put(app_path('Repositories/Implementation/BaseRepositoryImpl.php'), $baseImplementation);
+        File::put($baseInterfacePath, $baseInterface);
+        File::put($baseImplPath, $baseImplementation);
     }
 
     protected function createRepositoryFiles(string $name, array $customMethods)
     {
+        $interfacePath = app_path("Repositories/Interfaces/{$name}Repository.php");
+        $implPath = app_path("Repositories/Implementation/{$name}RepositoryImpl.php");
+
+        if (File::exists($interfacePath) || File::exists($implPath)) {
+            $this->command->error("Repository files for '{$name}' already exist!");
+            return;
+        }
+
         $interfaceContent = $this->generateInterface($name, $customMethods);
         $implementationContent = $this->generateImplementation($name, $customMethods);
 
-        File::put(app_path("Repositories/Interfaces/{$name}Repository.php"), $interfaceContent);
-        File::put(app_path("Repositories/Implementation/{$name}RepositoryImpl.php"), $implementationContent);
+        File::put($interfacePath, $interfaceContent);
+        File::put($implPath, $implementationContent);
+        $this->command->info("Repository files for '{$name}' created successfully!");
     }
 
     protected function generateInterface(string $name, array $customMethods): string
     {
-        $methods = $this->generateInterfaceMethods($customMethods);
+        $methods = empty($customMethods) ? '    // Add custom methods here if needed' :
+            collect($customMethods)->map(fn ($method) => "    public function {$method['name']}({$method['params']}): {$method['returnType']};")->implode("\n");
 
         return <<<EOF
 <?php
@@ -128,20 +163,17 @@ interface {$name}Repository extends BaseRepository
 EOF;
     }
 
-    protected function generateInterfaceMethods(array $customMethods): string
-    {
-        if (empty($customMethods)) {
-            return '    // Add custom methods here if needed';
-        }
-
-        return collect($customMethods)->map(function ($method) {
-            return "    public function {$method['name']}({$method['params']}): {$method['returnType']};";
-        })->implode("\n\n");
-    }
-
     protected function generateImplementation(string $name, array $customMethods): string
     {
-        $methods = $this->generateImplementationMethods($customMethods);
+        $methods = empty($customMethods) ? '    // Add custom methods implementation here if needed' :
+            collect($customMethods)->map(function ($method) {
+                $return = match ($method['returnType']) {
+                    'bool' => 'return false;', 'int' => 'return 0;', 'string' => 'return "";',
+                    'array' => 'return [];', 'void' => 'return;', 'Model' => 'return $this->model->first();',
+                    'Collection' => 'return $this->model->get();', default => 'return null;'
+                };
+                return "    public function {$method['name']}({$method['params']}): {$method['returnType']}\n    {\n        // TODO: Implement {$method['name']}\n        {$return}\n    }";
+            })->implode("\n\n");
 
         return <<<EOF
 <?php
@@ -163,54 +195,23 @@ class {$name}RepositoryImpl extends BaseRepositoryImpl implements {$name}Reposit
 EOF;
     }
 
-    protected function generateImplementationMethods(array $customMethods): string
-    {
-        if (empty($customMethods)) {
-            return '    // Add custom methods implementation here if needed';
-        }
-
-        return collect($customMethods)->map(function ($method) {
-            $returnStatement = match ($method['returnType']) {
-                'bool' => 'return false;',
-                'int' => 'return 0;',
-                'string' => 'return "";',
-                'array' => 'return [];',
-                'void' => 'return;',
-                'Model' => 'return $this->model->first();',
-                'Collection' => 'return $this->model->get();',
-                default => 'return null;'
-            };
-
-            return <<<METHOD
-    public function {$method['name']}({$method['params']}): {$method['returnType']}
-    {
-        // TODO: Implement {$method['name']} method
-        {$returnStatement}
-    }
-METHOD;
-        })->implode("\n\n");
-    }
-
     protected function registerRepository(string $name)
     {
         $providerPath = app_path('Providers/RepositoryServiceProvider.php');
 
         if (!File::exists($providerPath)) {
             $this->createServiceProvider($name);
-            $this->command->info('Don\'t forget to register RepositoryServiceProvider in bootstrap/app.php');
+            $this->command->info("RepositoryServiceProvider created. Register it in bootstrap/app.php.");
             return;
         }
 
-        $binding = "\$this->app->bind(\\App\\Repositories\\Interfaces\\{$name}Repository::class, \\App\\Repositories\\Implementation\\{$name}RepositoryImpl::class);";
         $content = File::get($providerPath);
+        $binding = "\$this->app->bind(\\App\\Repositories\\Interfaces\\{$name}Repository::class, \\App\\Repositories\\Implementation\\{$name}RepositoryImpl::class);";
 
         if (!str_contains($content, "{$name}Repository::class")) {
-            $content = preg_replace(
-                '/(public function register\(\).*{)/s',
-                "$1\n        $binding",
-                $content
-            );
+            $content = preg_replace('/(public function register\(\).*{)/s', "$1\n        $binding", $content);
             File::put($providerPath, $content);
+            $this->command->info("Repository '{$name}' registered in RepositoryServiceProvider.");
         }
     }
 
@@ -231,7 +232,6 @@ class RepositoryServiceProvider extends ServiceProvider
     }
 }
 EOF;
-
         File::put(app_path('Providers/RepositoryServiceProvider.php'), $content);
     }
 }

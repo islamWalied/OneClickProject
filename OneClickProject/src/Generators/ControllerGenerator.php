@@ -8,7 +8,6 @@ use Illuminate\Support\Facades\File;
 class ControllerGenerator
 {
     protected Command $command;
-    protected array $attributes = []; // Initialize as an empty array
 
     public function __construct(Command $command)
     {
@@ -17,21 +16,31 @@ class ControllerGenerator
 
     public function generate(string $name)
     {
-        $this->command->call('make:controller', [
-            'name' => "{$name}Controller",
-            '--model' => $name,
-        ]);
+        if (!$this->isValidName($name)) {
+            $this->command->error("Invalid controller name '{$name}'. Use alphanumeric characters and start with a letter.");
+            return;
+        }
 
-        $this->updateControllerFile($name);
+        $controllerPath = app_path("Http/Controllers/{$name}Controller.php");
+        if (File::exists($controllerPath)) {
+            $this->command->error("Controller '{$name}Controller' already exists at '{$controllerPath}'!");
+            return;
+        }
+
+        $this->createControllerFile($controllerPath, $name);
+        $this->command->info("Controller '{$name}Controller' created successfully!");
     }
 
-    protected function updateControllerFile(string $name)
+    protected function isValidName(string $name): bool
     {
-        $controllerPath = app_path("Http/Controllers/{$name}Controller.php");
+        return preg_match('/^[a-zA-Z][a-zA-Z0-9]*$/', $name) === 1;
+    }
+
+    protected function createControllerFile(string $path, string $name)
+    {
         $lower = strtolower($name);
         $serviceInterface = "{$name}Service";
-
-        $updatedContent = <<<EOF
+        $content = <<<EOF
 <?php
 
 namespace App\Http\Controllers;
@@ -77,8 +86,6 @@ class {$name}Controller extends Controller
     }
 }
 EOF;
-
-        File::put($controllerPath, $updatedContent);
-        $this->command->info("Controller {$name}Controller updated successfully!");
+        File::put($path, $content);
     }
 }

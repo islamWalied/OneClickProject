@@ -23,9 +23,13 @@ class OneClickProject extends Command
 
     public function handle()
     {
-        $name = $this->argument('name');
+        $name = $this->validateName($this->argument('name'));
+        if (!$name) {
+            $this->error("Invalid project name. Aborting.");
+            return 1;
+        }
 
-        // Check if setup is needed before proceeding
+        // Check and perform setup if needed
         if (!$this->isSetupComplete()) {
             $this->ensureApiRoutesFileExists();
             $this->updateAppConfig();
@@ -33,7 +37,7 @@ class OneClickProject extends Command
 
         $modelGenerator = new ModelGenerator($this);
         if (!$modelGenerator->generate($name, $this->attributes)) {
-            return;
+            return 1;
         }
 
         $this->askForCustomMethods();
@@ -46,25 +50,46 @@ class OneClickProject extends Command
         (new RequestGenerator($this))->generate($name, $this->attributes);
         (new RouteGenerator($this))->generate($name);
 
-        $this->info('Project generation completed!');
+        $this->info("Entity '{$name}' generated successfully!");
         if (!$this->isSetupComplete()) {
-            $this->info('Note: You may need to restart your application (e.g., if using Laravel Sail, run `sail down && sail up -d`) to apply the changes to bootstrap/app.php.');
+            $this->info("Note: You may need to restart your application (e.g., 'sail down && sail up -d' if using Laravel Sail) to apply changes to bootstrap/app.php.");
         }
+        return 0;
     }
 
-    protected function isSetupComplete()
+    protected function validateName(string $name): ?string
+    {
+        if (!preg_match('/^[a-zA-Z][a-zA-Z0-9]*$/', $name)) {
+            $this->error("Name '{$name}' is invalid. Use alphanumeric characters starting with a letter.");
+            return null;
+        }
+        return $name;
+    }
+
+    protected function isSetupComplete(): bool
     {
         $appPath = base_path('bootstrap/app.php');
 
         if (!File::exists($appPath)) {
-            return false; // Assume setup is needed if app.php doesn't exist
+            $this->warn("bootstrap/app.php not found. Setup will be performed.");
+            return false;
         }
 
         $content = File::get($appPath);
+        $requiredPatterns = [
+            'api: __DIR__.\'/../routes/api.php\'' => 'API routing',
+            "'cors' => App\\Http\\Middleware\\Cors::class" => 'CORS middleware alias',
+            "'throttle' => App\\Http\\Middleware\\ThrottleRequests::class" => 'Throttle middleware alias',
+        ];
 
-        // Check if 'api' route and 'cors' middleware alias are present
-        return strpos($content, 'api: __DIR__.\'/../routes/api.php\'') !== false &&
-            strpos($content, "'cors' => App\\Http\\Middleware\\Cors::class") !== false;
+        foreach ($requiredPatterns as $pattern => $description) {
+            if (strpos($content, $pattern) === false) {
+                $this->warn("{$description} not configured in bootstrap/app.php. Setup will be performed.");
+                return false;
+            }
+        }
+
+        return true;
     }
 
     protected function ensureApiRoutesFileExists()
@@ -72,13 +97,27 @@ class OneClickProject extends Command
         $apiRoutePath = base_path('routes/api.php');
 
         if (File::exists($apiRoutePath)) {
-            return; // Skip if the file already exists
+            $this->info("API routes file already exists at '{$apiRoutePath}'.");
+            return;
         }
+
         $apiRouteContent = <<<'PHP'
+<?php
+
+use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| API Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register API routes for your application.
+|
+*/
 PHP;
 
         File::put($apiRoutePath, $apiRouteContent);
-        $this->info('Created routes/api.php');
+        $this->info("Created routes/api.php at '{$apiRoutePath}'.");
     }
 
     protected function updateAppConfig()
@@ -86,24 +125,15 @@ PHP;
         $appPath = base_path('bootstrap/app.php');
 
         if (!File::exists($appPath)) {
-            $this->error('bootstrap/app.php not found. Please ensure your Laravel installation is complete.');
+            $this->error("bootstrap/app.php not found. Please ensure your Laravel installation is complete.");
             return;
         }
 
-        // Read the existing content
         $content = File::get($appPath);
-
-        // Check if the 'cors' alias is already present to avoid duplicate updates
-        if (strpos($content, "'cors' => App\\Http\\Middleware\\Cors::class") !== false) {
-            return; // Skip if the configuration is already applied
-        }
-
-        // Backup the existing file
         $backupPath = base_path('bootstrap/app.php.backup_' . time());
         File::copy($appPath, $backupPath);
-        $this->info("Backed up bootstrap/app.php to $backupPath");
+        $this->info("Backed up bootstrap/app.php to '{$backupPath}'.");
 
-        // Define the use statements to inject
         $useStatements = [
             'use Illuminate\Foundation\Application;',
             'use Illuminate\Foundation\Configuration\Exceptions;',
@@ -111,19 +141,12 @@ PHP;
             'use Illuminate\Http\Request;'
         ];
 
-        // Check for each use statement and inject only the missing ones
-        $newUseStatements = [];
-        foreach ($useStatements as $useStatement) {
-            if (strpos($content, $useStatement) === false) {
-                $newUseStatements[] = $useStatement;
-            }
-        }
-
+        $newUseStatements = array_filter($useStatements, fn($stmt) => strpos($content, $stmt) === false);
         if (!empty($newUseStatements)) {
             $content = preg_replace('/<\?php/', "<?php\n\n" . implode("\n", $newUseStatements) . "\n", $content);
+            $this->info("Added missing use statements to bootstrap/app.php.");
         }
 
-        // Define the routing block with api route
         $routingBlock = <<<'PHP'
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
@@ -133,18 +156,16 @@ PHP;
     )
 PHP;
 
-        // Define the middleware alias block to inject
         $middlewareBlock = <<<'PHP'
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
             'lang' => App\Http\Middleware\Lang::class,
-            'cors' => App\Http\Middleware\Cors::class, // Added by One Click Project
-            'throttle' => App\Http\Middleware\ThrottleRequests::class, // Added by One Click Project
+            'cors' => App\Http\Middleware\Cors::class,
+            'throttle' => App\Http\Middleware\ThrottleRequests::class,
         ]);
     })
 PHP;
 
-        // Define the exceptions block to inject
         $exceptionsBlock = <<<'PHP'
     ->withExceptions(function (Exceptions $exceptions) {
         $exceptions->render(function (Throwable $e, Request $request) {
@@ -169,11 +190,10 @@ PHP;
     })
 PHP;
 
-        // Check if routing block exists and update or add it
         if (strpos($content, '->withRouting') === false) {
             $content = str_replace(
                 'return Application::configure(basePath: dirname(__DIR__))',
-                'return Application::configure(basePath: dirname(__DIR__))\n' . $routingBlock,
+                "return Application::configure(basePath: dirname(__DIR__))\n{$routingBlock}",
                 $content
             );
         } else {
@@ -184,11 +204,10 @@ PHP;
             );
         }
 
-        // Check if middleware block exists and update or add it
         if (strpos($content, '->withMiddleware') === false) {
             $content = str_replace(
                 $routingBlock,
-                $routingBlock . "\n" . $middlewareBlock,
+                "{$routingBlock}\n{$middlewareBlock}",
                 $content
             );
         } else {
@@ -199,11 +218,10 @@ PHP;
             );
         }
 
-        // Check if exceptions block exists and update or add it
         if (strpos($content, '->withExceptions') === false) {
             $content = str_replace(
                 $middlewareBlock,
-                $middlewareBlock . "\n" . $exceptionsBlock,
+                "{$middlewareBlock}\n{$exceptionsBlock}",
                 $content
             );
         } else {
@@ -214,26 +232,30 @@ PHP;
             );
         }
 
-        // Write the updated content
         File::put($appPath, $content);
-        $this->info('Updated bootstrap/app.php with API routing, middleware aliases, and exception handling.');
+        $this->info("Updated bootstrap/app.php with API routing, middleware aliases, and exception handling.");
     }
 
     protected function askForCustomMethods()
     {
         while (true) {
-            $response = $this->ask('Do you want to add a custom method in the repository? (yes/no)');
-
-            if (strtolower($response) === 'no') {
+            $response = strtolower($this->ask('Do you want to add a custom method in the repository? (yes/no)', 'no'));
+            if ($response === 'no') {
                 break;
-            } elseif (strtolower($response) !== 'yes') {
-                $this->error('Invalid input. Please enter "yes" or "no".');
+            } elseif ($response !== 'yes') {
+                $this->error("Invalid input '{$response}'. Please enter 'yes' or 'no'.");
                 continue;
             }
 
-            $methodName = $this->ask('Enter method name (e.g., findByEmail)');
-            $returnType = $this->ask('Enter return type (default: mixed)', 'mixed');
-            $params = $this->ask('Enter parameters (e.g., string $email, int $id)');
+            $methodName = $this->promptForValidName('Enter method name (e.g., findByEmail):');
+            if (!$methodName) continue;
+
+            $returnType = $this->promptForValidReturnType('Enter return type (e.g., mixed, string, int):', 'mixed');
+            if (!$returnType) continue;
+
+            $params = $this->promptForValidParams('Enter parameters (e.g., "string $email, int $id") or leave empty:');
+            if ($params === false) continue;
+
             $implementInService = $this->confirm('Do you want to implement this method in the service?', true);
 
             $this->customMethods[] = [
@@ -242,6 +264,51 @@ PHP;
                 'params' => $params,
                 'implementInService' => $implementInService,
             ];
+            $this->info("Added custom method '{$methodName}' to the list.");
+        }
+    }
+
+    protected function promptForValidName(string $prompt): ?string
+    {
+        while (true) {
+            $name = $this->ask($prompt);
+            if (empty($name)) {
+                $this->error("Name cannot be empty.");
+                continue;
+            }
+            if (preg_match('/^[a-zA-Z][a-zA-Z0-9]*$/', $name)) {
+                return $name;
+            }
+            $this->error("Invalid name '{$name}'. Use alphanumeric characters starting with a letter.");
+        }
+    }
+
+    protected function promptForValidReturnType(string $prompt, string $default = 'mixed'): ?string
+    {
+        $validTypes = ['mixed', 'void', 'bool', 'int', 'string', 'array', 'Model', 'Collection'];
+        while (true) {
+            $type = $this->ask($prompt, $default);
+            if (in_array($type, $validTypes)) {
+                return $type;
+            }
+            $this->error("Invalid return type '{$type}'. Valid options: " . implode(', ', $validTypes));
+        }
+    }
+
+    protected function promptForValidParams(string $prompt): string|bool
+    {
+        while (true) {
+            $params = trim($this->ask($prompt, ''));
+            if ($params === '') {
+                return '';
+            }
+            if (preg_match('/^([a-zA-Z]+\s+\$[a-zA-Z0-9]+(,\s*)?)+$/', $params)) {
+                return $params;
+            }
+            $this->error("Invalid parameters format '{$params}'. Use 'type $name' syntax (e.g., 'string $email, int $id').");
+            if ($this->confirm('Skip parameter input and leave empty?', false)) {
+                return '';
+            }
         }
     }
 }

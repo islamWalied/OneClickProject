@@ -17,53 +17,63 @@ class RequestGenerator
 
     public function generate(string $name, array $attributes)
     {
-        $requestDirectory = app_path('Http/Requests');
+        if (!$this->isValidName($name)) {
+            $this->command->error("Invalid request name '{$name}'. Use alphanumeric characters and start with a letter.");
+            return;
+        }
 
+        $requestDirectory = app_path('Http/Requests');
         if (!File::exists($requestDirectory)) {
             File::makeDirectory($requestDirectory, 0755, true);
         }
 
-        $storeRequestPath = "{$requestDirectory}/Store{$name}Request.php";
-        $storeRequestContent = $this->generateStoreRequestContent($name, $attributes);
-        File::put($storeRequestPath, $storeRequestContent);
+        $storePath = "{$requestDirectory}/Store{$name}Request.php";
+        $updatePath = "{$requestDirectory}/Update{$name}Request.php";
 
-        $updateRequestPath = "{$requestDirectory}/Update{$name}Request.php";
-        $updateRequestContent = $this->generateUpdateRequestContent($name, $attributes);
-        File::put($updateRequestPath, $updateRequestContent);
+        if (File::exists($storePath) || File::exists($updatePath)) {
+            $this->command->error("Request files for '{$name}' already exist!");
+            return;
+        }
 
-        $this->command->info("Request classes for {$name} created successfully!");
+        $storeContent = $this->generateStoreRequestContent($name, $attributes);
+        $updateContent = $this->generateUpdateRequestContent($name, $attributes);
+
+        File::put($storePath, $storeContent);
+        File::put($updatePath, $updateContent);
+        $this->command->info("Request classes for '{$name}' created successfully!");
+    }
+
+    protected function isValidName(string $name): bool
+    {
+        return preg_match('/^[a-zA-Z][a-zA-Z0-9]*$/', $name) === 1;
     }
 
     protected function generateStoreRequestContent(string $name, array $attributes): string
     {
-        $rules = [];
-        $processedAttributes = [];
+        if (empty($attributes)) {
+            $this->command->warn("No attributes provided for '{$name}' store request. Rules will be empty.");
+        }
 
-        foreach ($attributes as $attribute => $type) {
-            if (in_array($attribute, $processedAttributes)) {
-                continue;
+        $rules = collect($attributes)->map(function ($options, $attribute) {
+            if (!$this->isValidName($attribute)) {
+                $this->command->error("Invalid attribute name '{$attribute}' in store request. Skipping.");
+                return null;
             }
 
+            $type = $options['type'] ?? 'string';
             if (in_array($attribute, ['image', 'photo', 'plan_image'])) {
-                $rules[] = "'$attribute' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:5120'";
-                $processedAttributes[] = $attribute;
-                continue;
+                return "'$attribute' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:5120'";
             }
 
-            $rule = match ($type) {
+            return match ($type) {
                 'string' => "'$attribute' => 'required|string|max:255'",
                 'integer' => "'$attribute' => 'required|integer'",
                 'boolean' => "'$attribute' => 'required|boolean'",
-                'date' => "'$attribute' => 'required|date'",
-                'foreignId' => $this->generateForeignKeyValidationRule($attribute),
+                'date', 'datetime', 'timestamp' => "'$attribute' => 'required|date'",
+                'foreignId' => "'$attribute' => 'required|numeric|exists:" . Str::plural(str_replace('_id', '', $attribute)) . ",id'",
                 default => "'$attribute' => 'required'"
             };
-
-            $rules[] = $rule;
-            $processedAttributes[] = $attribute;
-        }
-
-        $rulesStr = implode(",\n            ", $rules);
+        })->filter()->implode(",\n            ");
 
         return <<<EOF
 <?php
@@ -82,7 +92,7 @@ class Store{$name}Request extends FormRequest
     public function rules(): array
     {
         return [
-            {$rulesStr}
+            {$rules}
         ];
     }
 }
@@ -91,34 +101,30 @@ EOF;
 
     protected function generateUpdateRequestContent(string $name, array $attributes): string
     {
-        $rules = [];
-        $processedAttributes = [];
+        if (empty($attributes)) {
+            $this->command->warn("No attributes provided for '{$name}' update request. Rules will be empty.");
+        }
 
-        foreach ($attributes as $attribute => $type) {
-            if (in_array($attribute, $processedAttributes)) {
-                continue;
+        $rules = collect($attributes)->map(function ($options, $attribute) {
+            if (!$this->isValidName($attribute)) {
+                $this->command->error("Invalid attribute name '{$attribute}' in update request. Skipping.");
+                return null;
             }
 
+            $type = $options['type'] ?? 'string';
             if (in_array($attribute, ['image', 'photo', 'plan_image'])) {
-                $rules[] = "'$attribute' => 'sometimes|image|mimes:jpeg,png,jpg,gif,svg|max:10240'";
-                $processedAttributes[] = $attribute;
-                continue;
+                return "'$attribute' => 'sometimes|image|mimes:jpeg,png,jpg,gif,svg|max:10240'";
             }
 
-            $rule = match ($type) {
+            return match ($type) {
                 'string' => "'$attribute' => 'sometimes|string|max:255'",
                 'integer' => "'$attribute' => 'sometimes|integer'",
                 'boolean' => "'$attribute' => 'sometimes|boolean'",
-                'date' => "'$attribute' => 'sometimes|date'",
-                'foreignId' => $this->generateForeignKeyUpdateValidationRule($attribute),
+                'date', 'datetime', 'timestamp' => "'$attribute' => 'sometimes|date'",
+                'foreignId' => "'$attribute' => 'sometimes|numeric|exists:" . Str::plural(str_replace('_id', '', $attribute)) . ",id'",
                 default => "'$attribute' => 'sometimes'"
             };
-
-            $rules[] = $rule;
-            $processedAttributes[] = $attribute;
-        }
-
-        $rulesStr = implode(",\n            ", $rules);
+        })->filter()->implode(",\n            ");
 
         return <<<EOF
 <?php
@@ -137,22 +143,10 @@ class Update{$name}Request extends FormRequest
     public function rules(): array
     {
         return [
-            {$rulesStr}
+            {$rules}
         ];
     }
 }
 EOF;
-    }
-
-    protected function generateForeignKeyValidationRule(string $attribute): string
-    {
-        $tableName = Str::plural(str_replace('_id', '', $attribute));
-        return "'$attribute' => 'required|numeric|exists:{$tableName},id'";
-    }
-
-    protected function generateForeignKeyUpdateValidationRule(string $attribute): string
-    {
-        $tableName = Str::plural(str_replace('_id', '', $attribute));
-        return "'$attribute' => 'sometimes|numeric|exists:{$tableName},id'";
     }
 }

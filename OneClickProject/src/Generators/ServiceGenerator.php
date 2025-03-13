@@ -16,10 +16,27 @@ class ServiceGenerator
 
     public function generate(string $name, array $customMethods, array $attributes)
     {
+        if (!$this->isValidName($name)) {
+            $this->command->error("Invalid service name '{$name}'. Use alphanumeric characters and start with a letter.");
+            return;
+        }
+
+        foreach ($customMethods as $method) {
+            if (!isset($method['name']) || !$this->isValidName($method['name'])) {
+                $this->command->error("Invalid custom method name '{$method['name']}'. Skipping generation.");
+                return;
+            }
+        }
+
         $this->createServiceStructure();
         $this->createBaseService();
         $this->createServiceFiles($name, $customMethods, $attributes);
         $this->registerService($name);
+    }
+
+    protected function isValidName(string $name): bool
+    {
+        return preg_match('/^[a-zA-Z][a-zA-Z0-9]*$/', $name) === 1;
     }
 
     protected function createServiceStructure()
@@ -34,7 +51,13 @@ class ServiceGenerator
 
     protected function createBaseService()
     {
-        $baseImplementation = <<<'EOF'
+        $basePath = app_path('Services/Implementation/BaseServiceImpl.php');
+        if (File::exists($basePath)) {
+            $this->command->warn("Base service file already exists. Skipping creation.");
+            return;
+        }
+
+        $content = <<<EOF
 <?php
 
 namespace App\Services\Implementation;
@@ -47,26 +70,34 @@ class BaseServiceImpl
     use ResponseTrait, ImageTrait;
 }
 EOF;
-
-        File::put(app_path('Services/Implementation/BaseServiceImpl.php'), $baseImplementation);
+        File::put($basePath, $content);
     }
 
     protected function createServiceFiles(string $name, array $customMethods, array $attributes)
     {
+        $interfacePath = app_path("Services/Interfaces/{$name}Service.php");
+        $implPath = app_path("Services/Implementation/{$name}ServiceImpl.php");
+
+        if (File::exists($interfacePath) || File::exists($implPath)) {
+            $this->command->error("Service files for '{$name}' already exist!");
+            return;
+        }
+
         $interfaceContent = $this->generateServiceInterface($name, $customMethods);
         $implementationContent = $this->generateServiceImplementation($name, $customMethods, $attributes);
 
-        File::put(app_path("Services/Interfaces/{$name}Service.php"), $interfaceContent);
-        File::put(app_path("Services/Implementation/{$name}ServiceImpl.php"), $implementationContent);
+        File::put($interfacePath, $interfaceContent);
+        File::put($implPath, $implementationContent);
+        $this->command->info("Service files for '{$name}' created successfully!");
     }
 
     protected function generateServiceInterface(string $name, array $customMethods): string
     {
         $lower = strtolower($name);
         $methods = [
-            '    public function index($limit);',
+            "    public function index(\$limit);",
             "    public function show(\${$lower});",
-            '    public function store($request);',
+            "    public function store(\$request);",
             "    public function update(\$request, \${$lower});",
             "    public function delete(\${$lower});",
         ];
@@ -79,8 +110,6 @@ EOF;
             }
         }
 
-        $methodsStr = implode("\n", $methods);
-
         return <<<EOF
 <?php
 
@@ -88,7 +117,7 @@ namespace App\Services\Interfaces;
 
 interface {$name}Service
 {
-{$methodsStr}
+{$this->implodeMethods($methods)}
 }
 EOF;
     }
@@ -106,14 +135,12 @@ EOF;
         if (!empty($customMethods)) {
             foreach ($customMethods as $method) {
                 if ($method['implementInService']) {
-                    $methods[] = $this->generateCustomServiceMethod($method);
+                    $methods[] = $this->generateCustomServiceMethod($method, $name);
                 }
             }
         }
 
-        $methodsStr = implode("\n\n", $methods);
         $lowerName = strtolower($name);
-
         return <<<EOF
 <?php
 
@@ -133,9 +160,14 @@ class {$name}ServiceImpl extends BaseServiceImpl implements {$name}Service
         \$this->{$lowerName}Repository = \${$lowerName}Repository;
     }
 
-{$methodsStr}
+{$this->implodeMethods($methods)}
 }
 EOF;
+    }
+
+    protected function implodeMethods(array $methods): string
+    {
+        return implode("\n\n", $methods);
     }
 
     protected function generateIndexMethod(string $name): string
@@ -145,12 +177,11 @@ EOF;
     public function index(\$limit)
     {
         try {
+            Log::info('{$name} index request', ['limit' => \$limit]);
             \${$lower} = \$this->{$lower}Repository->index(\$limit);
-            return \$this->returnData(
-                __('messages.{$lower}.index_success'), 200,
-                {$name}Resource::collection(\${$lower})
-            );
-        } catch (\\Exception \$e) {
+            Log::info('{$name} index successful', ['count' => \${$lower}->count()]);
+            return \$this->returnData(__('messages.{$lower}.index_success'), 200, {$name}Resource::collection(\${$lower}));
+        } catch (\Exception \$e) {
             Log::error('{$name} fetch Error: ', ['error' => \$e->getMessage()]);
             \$this->returnError(__('messages.{$lower}.index_failed'), 500);
         }
@@ -165,12 +196,11 @@ METHOD;
     public function show(\${$lower})
     {
         try {
+            Log::info('{$name} show request', ['id' => \${$lower}->id]);
             \${$lower} = \$this->{$lower}Repository->show(\${$lower}->id);
-            return \$this->returnData(
-                __('messages.{$lower}.show_success'), 200,
-                new {$name}Resource(\${$lower})
-            );
-        } catch (\\Exception \$e) {
+            Log::info('{$name} show successful', ['id' => \${$lower}->id]);
+            return \$this->returnData(__('messages.{$lower}.show_success'), 200, new {$name}Resource(\${$lower}));
+        } catch (\Exception \$e) {
             Log::error('{$name} fetch Error:', ['error' => \$e->getMessage()]);
             \$this->returnError(__('messages.{$lower}.show_failed'), 500);
         }
@@ -182,43 +212,26 @@ METHOD;
     {
         $lower = strtolower($name);
         $imageAttributes = ['image', 'photo', 'plan_image'];
-        $hasImageAttribute = false;
-        $imageAttributeName = null;
+        $imageAttribute = array_key_first(array_intersect(array_keys($attributes), $imageAttributes));
+        $saveImageLogic = $imageAttribute ? "\${$lower}Image = \$this->saveImage(\$request, '{$imageAttribute}', '{$name}/Images');" : '';
 
-        foreach ($imageAttributes as $attribute) {
-            if (isset($attributes[$attribute])) {
-                $hasImageAttribute = true;
-                $imageAttributeName = $attribute;
-                break;
-            }
-        }
-
-        $saveImageLogic = $hasImageAttribute ? "\${$lower}Image = \$this->saveImage(\$request, '{$imageAttributeName}', '{$name}/Images');" : '';
-
-        $dataArray = [];
-        foreach ($attributes as $attribute => $type) {
-            if ($attribute === $imageAttributeName) {
-                $dataArray[] = "\"{$attribute}\" => \${$lower}Image,";
-            } else {
-                $dataArray[] = "\"{$attribute}\" => \$request->{$attribute},";
-            }
-        }
-        $dataArrayStr = implode("\n                ", $dataArray);
+        $dataArray = collect($attributes)->map(fn ($options, $attr) =>
+        $attr === $imageAttribute ? "\"{$attr}\" => \${$lower}Image," : "\"{$attr}\" => \$request->{$attr},"
+        )->implode("\n                ");
 
         return <<<METHOD
     public function store(\$request)
     {
         try {
+            Log::info('{$name} store request', \$request->all());
             {$saveImageLogic}
-
             \${$lower} = [
-                {$dataArrayStr}
+                {$dataArray}
             ];
-
-            \$this->{$lower}Repository->store(\${$lower});
-
+            \$created{$name} = \$this->{$lower}Repository->store(\${$lower});
+            Log::info('{$name} created successfully', ['id' => \$created{$name}->id]);
             return \$this->success(__('messages.{$lower}.create_success'), 201);
-        } catch (\\Exception \$e) {
+        } catch (\Exception \$e) {
             Log::error('{$name} Create Error', ['error' => \$e->getMessage()]);
             \$this->returnError(__('messages.{$lower}.create_failed'), 500);
         }
@@ -230,41 +243,24 @@ METHOD;
     {
         $lower = strtolower($name);
         $imageAttributes = ['image', 'photo', 'plan_image'];
-        $hasImageAttribute = false;
-        $imageAttributeName = null;
+        $imageAttribute = array_key_first(array_intersect(array_keys($attributes), $imageAttributes));
+        $updateImageLogic = $imageAttribute ? "\${$lower}Image = \$this->updateImage(\$request, '{$imageAttribute}', '{$name}/Images', \${$lower}->{$imageAttribute});" : '';
 
-        foreach ($imageAttributes as $attribute) {
-            if (isset($attributes[$attribute])) {
-                $hasImageAttribute = true;
-                $imageAttributeName = $attribute;
-                break;
-            }
-        }
-
-        $updateImageLogic = $hasImageAttribute ? "\${$lower}Image = \$this->updateImage(\$request, '{$imageAttributeName}', '{$name}/Images', \${$lower}->{$imageAttributeName});" : '';
-
-        $attributeUpdates = [];
-        foreach ($attributes as $attribute => $type) {
-            if ($attribute === $imageAttributeName) {
-                $attributeUpdates[] = "\${$lower}->{$attribute} = \${$lower}Image ?? \${$lower}->{$attribute};";
-            } else {
-                $attributeUpdates[] = "\${$lower}->{$attribute} = \$request->{$attribute} ?? \${$lower}->{$attribute};";
-            }
-        }
-        $attributeUpdatesStr = implode("\n            ", $attributeUpdates);
+        $attributeUpdates = collect($attributes)->map(fn ($options, $attr) =>
+        $attr === $imageAttribute ? "\${$lower}->{$attr} = \${$lower}Image ?? \${$lower}->{$attr};" : "\${$lower}->{$attr} = \$request->{$attr} ?? \${$lower}->{$attr};"
+        )->implode("\n            ");
 
         return <<<METHOD
     public function update(\$request, \${$lower})
     {
         try {
+            Log::info('{$name} update request', ['id' => \${$lower}->id, 'data' => \$request->all()]);
             {$updateImageLogic}
-
-            {$attributeUpdatesStr}
-
+            {$attributeUpdates}
             \$this->{$lower}Repository->update(\${$lower});
-
+            Log::info('{$name} updated successfully', ['id' => \${$lower}->id]);
             return \$this->success(__('messages.{$lower}.update_success'), 200);
-        } catch (\\Exception \$e) {
+        } catch (\Exception \$e) {
             Log::error('{$name} Update Error', ['error' => \$e->getMessage()]);
             \$this->returnError(__('messages.{$lower}.update_failed'), 500);
         }
@@ -276,28 +272,19 @@ METHOD;
     {
         $lower = strtolower($name);
         $imageAttributes = ['image', 'image_url', 'photo', 'icon'];
-        $hasImageAttribute = false;
-        $imageAttributeName = null;
-
-        foreach ($imageAttributes as $attribute) {
-            if (isset($attributes[$attribute])) {
-                $hasImageAttribute = true;
-                $imageAttributeName = $attribute;
-                break;
-            }
-        }
-
-        $deleteImageLogic = $hasImageAttribute ? "\$this->deleteImage(\${$lower}->{$imageAttributeName});" : '';
+        $imageAttribute = array_key_first(array_intersect(array_keys($attributes), $imageAttributes));
+        $deleteImageLogic = $imageAttribute ? "\$this->deleteImage(\${$lower}->{$imageAttribute});" : '';
 
         return <<<METHOD
     public function delete(\${$lower})
     {
         try {
+            Log::info('{$name} delete request', ['id' => \${$lower}->id]);
             {$deleteImageLogic}
             \$this->{$lower}Repository->delete(\${$lower});
-
+            Log::info('{$name} deleted successfully', ['id' => \${$lower}->id]);
             return \$this->success(__('messages.{$lower}.delete_success'), 204);
-        } catch (\\Exception \$e) {
+        } catch (\Exception \$e) {
             Log::error('{$name} Delete Error', ['error' => \$e->getMessage()]);
             \$this->returnError(__('messages.{$lower}.delete_failed'), 500);
         }
@@ -305,24 +292,23 @@ METHOD;
 METHOD;
     }
 
-    protected function generateCustomServiceMethod(array $method): string
+    protected function generateCustomServiceMethod(array $method, string $name): string
     {
-        $returnStatement = match ($method['returnType']) {
-            'bool' => 'return false;',
-            'int' => 'return 0;',
-            'string' => 'return "";',
-            'array' => 'return [];',
-            'void' => 'return;',
-            'Model' => 'return $this->model->first();',
-            'Collection' => 'return $this->model->get();',
-            default => 'return null;'
+        $return = match ($method['returnType']) {
+            'bool' => 'return false;', 'int' => 'return 0;', 'string' => 'return "";',
+            'array' => 'return [];', 'void' => 'return;', 'Model' => 'return $this->model->first();',
+            'Collection' => 'return $this->model->get();', default => 'return null;'
         };
+
+        $paramsForLog = preg_replace('/\w+\s+(\$\w+)/', '$1', $method['params']);
+        $paramsArray = empty($method['params']) ? '' : '[' . implode(', ', array_map(fn($param) => "'$param' => $param", explode(', ', $paramsForLog))) . ']';
 
         return <<<METHOD
     public function {$method['name']}({$method['params']}): {$method['returnType']}
     {
-        // TODO: Implement {$method['name']} method
-        {$returnStatement}
+        Log::info('{$name} custom method {$method['name']} called', {$paramsArray});
+        // TODO: Implement {$method['name']}
+        {$return}
     }
 METHOD;
     }
@@ -333,20 +319,17 @@ METHOD;
 
         if (!File::exists($providerPath)) {
             $this->makeServiceProvider($name);
-            $this->command->info('Don\'t forget to register ServiceServiceProvider in bootstrap/app.php');
+            $this->command->info("ServiceServiceProvider created. Register it in bootstrap/app.php.");
             return;
         }
 
-        $binding = "\$this->app->bind(\\App\\Services\\Interfaces\\{$name}Service::class, \\App\\Services\\Implementation\\{$name}ServiceImpl::class);";
         $content = File::get($providerPath);
+        $binding = "\$this->app->bind(\\App\\Services\\Interfaces\\{$name}Service::class, \\App\\Services\\Implementation\\{$name}ServiceImpl::class);";
 
         if (!str_contains($content, "{$name}Service::class")) {
-            $content = preg_replace(
-                '/(public function register\(\).*{)/s',
-                "$1\n        $binding",
-                $content
-            );
+            $content = preg_replace('/(public function register\(\).*{)/s', "$1\n        $binding", $content);
             File::put($providerPath, $content);
+            $this->command->info("Service '{$name}' registered in ServiceServiceProvider.");
         }
     }
 

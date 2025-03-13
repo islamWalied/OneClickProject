@@ -12,6 +12,12 @@
 - **Image Handling**: Built-in support for image uploads, updates, and deletions via a reusable `ImageTrait`.
 - **Response Helpers**: Standardized JSON responses via `ResponseTrait` for consistent API output.
 - **Route Helper**: Includes a `RouteHelper` utility for dynamically including API route files.
+- **Enhanced Attribute Management**: Improved attribute collection with support for modifiers like nullable, unique, and default values.
+- **Enum Support**: Add enum columns with specific allowed values in migrations.
+- **Middleware Configuration**: Selectively apply authentication middleware to specific API routes.
+- **Comprehensive Validation**: Auto-generated validation rules based on attribute types.
+- **Relationship Generation**: Automatic belongsTo relationships for foreign keys.
+- **Flexible Route Authentication**: Configure which API endpoints require authentication.
 
 ## Installation
 
@@ -62,6 +68,10 @@ php artisan generate:project Post
       ```
       Enter column name (or "done" to finish): title
       Select column type: string
+      Select modifiers for 'title' (multiple choice, comma-separated, press Enter for none): nullable, unique
+      Enter column name (or "done" to finish): status
+      Select column type: enum
+      Enter allowed values for 'status' (comma-separated, e.g., active,inactive): published,draft,archived
       Enter column name (or "done" to finish): user_id
       Select column type: foreignId
       Enter column name (or "done" to finish): done
@@ -74,6 +84,14 @@ php artisan generate:project Post
       Enter return type (default: mixed): string
       Enter parameters (e.g., string $email, int $id): string $slug
       Do you want to implement this method in the service? (yes/no): yes
+      ```
+3. **Route Authentication**: Specify which API endpoints require authentication:
+    - Example:
+      ```
+      Specify which methods should require authentication (auth:sanctum):
+      > store - POST create a resource
+      > update - PATCH update a resource
+      > destroy - DELETE delete a resource
       ```
 
 #### Generated Structure
@@ -130,12 +148,38 @@ After publishing the logging files, you need to update your `config/logging.php`
 
 ## API Endpoints
 
-Generated routes are prefixed with `v1/` and protected by `auth:sanctum` middleware:
+Generated routes follow this pattern:
 - `GET /v1/{model}s` - List all resources
 - `GET /v1/{model}s/{id}` - Show a resource
 - `POST /v1/{model}s` - Create a resource
 - `PATCH /v1/{model}s/{id}` - Update a resource
 - `DELETE /v1/{model}s/{id}` - Delete a resource
+
+All routes are prefixed with `v1/` and include `cors`, `lang`, and `throttle` middleware by default. You can selectively apply the `auth:sanctum` middleware to specific endpoints during the generation process.
+
+## Advanced Features
+
+### Model Attribute Modifiers
+When creating columns, you can apply the following modifiers:
+- `nullable`: Makes the column accept NULL values
+- `unique`: Ensures values in the column are unique
+- `default`: Sets a default value for the column
+
+### Enum Support
+For enum columns, you can specify allowed values as a comma-separated list. The migration will be generated with these values properly configured.
+
+### Foreign Key Relationships
+When adding a `foreignId` column, the system will:
+- Create a properly constrained foreign key in the migration
+- Add a `belongsTo` relationship in the model
+- Set up appropriate validation rules in request classes
+
+### Service-Repository Architecture
+The generated code follows a clean service-repository pattern:
+- Controllers interact only with services
+- Services contain business logic and interact with repositories
+- Repositories handle data access and storage
+- All components are properly bound using dependency injection
 
 ## Notes
 
