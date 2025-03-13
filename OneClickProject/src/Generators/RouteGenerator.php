@@ -31,8 +31,16 @@ class RouteGenerator
         ];
 
         $this->command->info("Specify which methods should require authentication (auth:sanctum):");
-        $options = array_map(fn($method, $desc) => "$method - $desc", array_keys($methods), $methods);
-        $authenticatedMethods = $this->promptForAuthenticatedMethods($options, array_keys($methods));
+        $authenticatedMethods = $this->command->choice(
+            "Select methods to be authenticated (multiple choice, comma-separated e.g.'0, 2',)",
+            array_map(fn($method, $desc) => "$method - $desc", array_keys($methods), $methods),
+            null,
+            null,
+            true
+        );
+
+        $authenticatedMethods = empty($authenticatedMethods) ? array_keys($methods) :
+            array_map(fn($choice) => explode(' - ', $choice)[0], $authenticatedMethods);
 
         $this->createApiFolderStructure();
         $this->generateApiRoutes($name, $authenticatedMethods);
@@ -42,26 +50,6 @@ class RouteGenerator
     protected function isValidName(string $name): bool
     {
         return preg_match('/^[a-zA-Z][a-zA-Z0-9]*$/', $name) === 1;
-    }
-
-    protected function promptForAuthenticatedMethods(array $options, array $allMethods): array
-    {
-        $authenticatedMethods = $this->command->choice(
-            "Select methods to be authenticated (comma-separated numbers, press Enter for all, e.g., '0, 2'):",
-            $options,
-            null,
-            null,
-            true
-        );
-
-        if (empty($authenticatedMethods)) {
-            $this->command->info("No selection made. Defaulting to all methods: " . implode(', ', $allMethods));
-            return $allMethods;
-        }
-
-        $selectedMethods = array_map(fn($choice) => explode(' - ', $choice)[0], $authenticatedMethods);
-        $this->command->info("Selected authenticated methods: " . implode(', ', $selectedMethods));
-        return $selectedMethods;
     }
 
     protected function createApiFolderStructure()

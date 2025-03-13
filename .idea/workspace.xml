@@ -6,16 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="c3d555f6-69b5-4bdf-b9c3-b324fc8c4242" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/OneClickProject/src/Commands/OneClickProject.php" beforeDir="false" afterPath="$PROJECT_DIR$/OneClickProject/src/Commands/OneClickProject.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/OneClickProject/src/Generators/ControllerGenerator.php" beforeDir="false" afterPath="$PROJECT_DIR$/OneClickProject/src/Generators/ControllerGenerator.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/OneClickProject/src/Generators/MigrationGenerator.php" beforeDir="false" afterPath="$PROJECT_DIR$/OneClickProject/src/Generators/MigrationGenerator.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/OneClickProject/src/Generators/ModelGenerator.php" beforeDir="false" afterPath="$PROJECT_DIR$/OneClickProject/src/Generators/ModelGenerator.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/OneClickProject/src/Generators/RepositoryGenerator.php" beforeDir="false" afterPath="$PROJECT_DIR$/OneClickProject/src/Generators/RepositoryGenerator.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/OneClickProject/src/Generators/RequestGenerator.php" beforeDir="false" afterPath="$PROJECT_DIR$/OneClickProject/src/Generators/RequestGenerator.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/OneClickProject/src/Generators/ResourceGenerator.php" beforeDir="false" afterPath="$PROJECT_DIR$/OneClickProject/src/Generators/ResourceGenerator.php" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/OneClickProject/src/Generators/RouteGenerator.php" beforeDir="false" afterPath="$PROJECT_DIR$/OneClickProject/src/Generators/RouteGenerator.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/OneClickProject/src/Generators/ServiceGenerator.php" beforeDir="false" afterPath="$PROJECT_DIR$/OneClickProject/src/Generators/ServiceGenerator.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -194,7 +185,7 @@
       <workItem from="1741705148237" duration="23000" />
       <workItem from="1741706179767" duration="282000" />
       <workItem from="1741868601322" duration="3741000" />
-      <workItem from="1741892045877" duration="14204000" />
+      <workItem from="1741892045877" duration="15368000" />
     </task>
     <servers />
   </component>
