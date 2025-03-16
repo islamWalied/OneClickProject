@@ -45,7 +45,7 @@ class RequestGenerator
 
     protected function isValidName(string $name): bool
     {
-        return preg_match('/^[a-zA-Z][a-zA-Z0-9]*$/', $name) === 1;
+        return preg_match('/^[a-zA-Z][a-zA-Z0-9_]+$/', $name) === 1;
     }
 
     protected function generateStoreRequestContent(string $name, array $attributes): string
