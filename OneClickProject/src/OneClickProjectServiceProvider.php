@@ -3,6 +3,7 @@
 namespace IslamWalied\OneClickProject;
 
 use Illuminate\Support\ServiceProvider as BaseServiceProvider;
+use IslamWalied\OneClickProject\Commands\ExportPostmanCollection;
 use IslamWalied\OneClickProject\Commands\OneClickProject;
 
 class OneClickProjectServiceProvider extends BaseServiceProvider
@@ -12,6 +13,7 @@ class OneClickProjectServiceProvider extends BaseServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 OneClickProject::class,
+//                ExportPostmanCollection::class,
             ]);
 
             $this->publishes([

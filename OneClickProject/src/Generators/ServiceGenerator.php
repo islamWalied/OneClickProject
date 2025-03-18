@@ -211,22 +211,24 @@ METHOD;
     protected function generateStoreMethod(string $name, array $attributes): string
     {
         $lower = strtolower($name);
-        $imageAttributes = ['image', 'photo', 'plan_image'];
+        $imageAttributes = ['image', 'photo', 'plan_image', 'icon'];
         $imageAttribute = array_key_first(array_intersect(array_keys($attributes), $imageAttributes));
-        $saveImageLogic = $imageAttribute ? "\${$lower}Image = \$this->saveImage(\$request, '{$imageAttribute}', '{$name}/Images');" : '';
 
-        $dataArray = collect($attributes)->map(fn ($options, $attr) =>
-        $attr === $imageAttribute ? "\"{$attr}\" => \${$lower}Image," : "\"{$attr}\" => \$request->{$attr},"
-        )->implode("\n                ");
+        $imageLogic = $imageAttribute ? "\${$lower}Image = \$this->saveImage(\$request, '{$imageAttribute}', '{$name}/Images');" : '';
+        $dataArray = collect($attributes)->map(function ($options, $attr) use ($imageAttribute, $lower) {
+            return $attr === $imageAttribute
+                ? "                \"{$attr}\" => \${$lower}Image,"
+                : "                \"{$attr}\" => \$request->$attr,";
+        })->implode("\n");
 
         return <<<METHOD
     public function store(\$request)
     {
         try {
             Log::info('{$name} store request', \$request->all());
-            {$saveImageLogic}
+            {$imageLogic}
             \${$lower} = [
-                {$dataArray}
+{$dataArray}
             ];
             \$created{$name} = \$this->{$lower}Repository->store(\${$lower});
             Log::info('{$name} created successfully', ['id' => \$created{$name}->id]);
@@ -242,21 +244,23 @@ METHOD;
     protected function generateUpdateMethod(string $name, array $attributes): string
     {
         $lower = strtolower($name);
-        $imageAttributes = ['image', 'photo', 'plan_image'];
+        $imageAttributes = ['image', 'photo', 'plan_image', 'icon'];
         $imageAttribute = array_key_first(array_intersect(array_keys($attributes), $imageAttributes));
-        $updateImageLogic = $imageAttribute ? "\${$lower}Image = \$this->updateImage(\$request, '{$imageAttribute}', '{$name}/Images', \${$lower}->{$imageAttribute});" : '';
 
-        $attributeUpdates = collect($attributes)->map(fn ($options, $attr) =>
-        $attr === $imageAttribute ? "\${$lower}->{$attr} = \${$lower}Image ?? \${$lower}->{$attr};" : "\${$lower}->{$attr} = \$request->{$attr} ?? \${$lower}->{$attr};"
-        )->implode("\n            ");
+        $imageLogic = $imageAttribute ? "\${$lower}Image = \$this->updateImage(\$request, '{$imageAttribute}', '{$name}/Images', \${$lower}->{$imageAttribute});" : '';
+        $attributeUpdates = collect($attributes)->map(function ($options, $attr) use ($imageAttribute, $lower) {
+            return $attr === $imageAttribute
+                ? "            \${$lower}->{$attr} = \${$lower}Image ?? \${$lower}->{$attr};"
+                : "            \${$lower}->{$attr} = \$request->$attr ?? \${$lower}->{$attr};";
+        })->implode("\n");
 
         return <<<METHOD
     public function update(\$request, \${$lower})
     {
         try {
             Log::info('{$name} update request', ['id' => \${$lower}->id, 'data' => \$request->all()]);
-            {$updateImageLogic}
-            {$attributeUpdates}
+            {$imageLogic}
+{$attributeUpdates}
             \$this->{$lower}Repository->update(\${$lower});
             Log::info('{$name} updated successfully', ['id' => \${$lower}->id]);
             return \$this->success(__('messages.{$lower}.update_success'), 200);
@@ -271,7 +275,7 @@ METHOD;
     protected function generateDeleteMethod(string $name, array $attributes): string
     {
         $lower = strtolower($name);
-        $imageAttributes = ['image', 'image_url', 'photo', 'icon'];
+        $imageAttributes = ['image', 'photo', 'plan_image', 'icon'];
         $imageAttribute = array_key_first(array_intersect(array_keys($attributes), $imageAttributes));
         $deleteImageLogic = $imageAttribute ? "\$this->deleteImage(\${$lower}->{$imageAttribute});" : '';
 

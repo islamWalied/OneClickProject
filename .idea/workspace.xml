@@ -6,6 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="c3d555f6-69b5-4bdf-b9c3-b324fc8c4242" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/OneClickProject/src/OneClickProjectServiceProvider.php" beforeDir="false" afterPath="$PROJECT_DIR$/OneClickProject/src/OneClickProjectServiceProvider.php" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -187,7 +188,11 @@
       <workItem from="1741892045877" duration="15862000" />
       <workItem from="1741914025172" duration="77000" />
       <workItem from="1741914276422" duration="1651000" />
-      <workItem from="1742143889966" duration="574000" />
+      <workItem from="1742143889966" duration="829000" />
+      <workItem from="1742154482108" duration="6000" />
+      <workItem from="1742155802729" duration="136000" />
+      <workItem from="1742306488561" duration="457000" />
+      <workItem from="1742308461475" duration="683000" />
     </task>
     <servers />
   </component>
