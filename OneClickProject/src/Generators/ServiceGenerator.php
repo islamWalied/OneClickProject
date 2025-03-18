@@ -124,12 +124,14 @@ EOF;
 
     protected function generateServiceImplementation(string $name, array $customMethods, array $attributes): string
     {
+        $hasImageAttributes = $this->hasImageAttributes($attributes);
+
         $methods = [
             $this->generateIndexMethod($name),
             $this->generateShowMethod($name),
-            $this->generateStoreMethod($name, $attributes),
-            $this->generateUpdateMethod($name, $attributes),
-            $this->generateDeleteMethod($name, $attributes),
+            $this->generateStoreMethod($name, $attributes, $hasImageAttributes),
+            $this->generateUpdateMethod($name, $attributes, $hasImageAttributes),
+            $this->generateDeleteMethod($name, $attributes, $hasImageAttributes),
         ];
 
         if (!empty($customMethods)) {
@@ -163,6 +165,12 @@ class {$name}ServiceImpl extends BaseServiceImpl implements {$name}Service
 {$this->implodeMethods($methods)}
 }
 EOF;
+    }
+
+    protected function hasImageAttributes(array $attributes): bool
+    {
+        $imageAttributes = ['image', 'photo', 'plan_image', 'icon'];
+        return !empty(array_intersect(array_keys($attributes), $imageAttributes));
     }
 
     protected function implodeMethods(array $methods): string
@@ -208,83 +216,153 @@ METHOD;
 METHOD;
     }
 
-    protected function generateStoreMethod(string $name, array $attributes): string
+    protected function generateStoreMethod(string $name, array $attributes, bool $hasImageAttributes): string
     {
         $lower = strtolower($name);
         $imageAttributes = ['image', 'photo', 'plan_image', 'icon'];
-        $imageAttribute = array_key_first(array_intersect(array_keys($attributes), $imageAttributes));
+        $imageFields = array_intersect(array_keys($attributes), $imageAttributes);
 
-        $imageLogic = $imageAttribute ? "\${$lower}Image = \$this->saveImage(\$request, '{$imageAttribute}', '{$name}/Images');" : '';
-        $dataArray = collect($attributes)->map(function ($options, $attr) use ($imageAttribute, $lower) {
-            return $attr === $imageAttribute
-                ? "                \"{$attr}\" => \${$lower}Image,"
-                : "                \"{$attr}\" => \$request->$attr,";
-        })->implode("\n");
+        if ($hasImageAttributes && !empty($imageFields)) {
+            $imageCode = "";
+            $dataArray = [];
 
-        return <<<METHOD
+            foreach ($imageFields as $field) {
+                $imageCode .= "            \${$lower}{$this->pascalCase($field)} = \$this->saveImage(\$request, '{$field}', '{$name}/Images');\n";
+                $dataArray[] = "                \"{$field}\" => \${$lower}{$this->pascalCase($field)},";
+            }
+
+            // Add non-image attributes
+            foreach ($attributes as $attr => $options) {
+                if (!in_array($attr, $imageFields)) {
+                    $dataArray[] = "                \"{$attr}\" => \$request->{$attr},";
+                }
+            }
+
+            $dataArrayStr = implode("\n", $dataArray);
+
+            return <<<METHOD
     public function store(\$request)
     {
         try {
             Log::info('{$name} store request', \$request->all());
-            {$imageLogic}
+$imageCode
             \${$lower} = [
-{$dataArray}
+$dataArrayStr
             ];
             \$created{$name} = \$this->{$lower}Repository->store(\${$lower});
             Log::info('{$name} created successfully', ['id' => \$created{$name}->id]);
-            return \$this->success(__('messages.{$lower}.create_success'), 201);
+            return \$this->returnData(__('messages.{$lower}.create_success'), 201, new {$name}Resource(\$created{$name}));
         } catch (\Exception \$e) {
             Log::error('{$name} Create Error', ['error' => \$e->getMessage()]);
             \$this->returnError(__('messages.{$lower}.create_failed'), 500);
         }
     }
 METHOD;
-    }
+        } else {
+            // Non-image attributes handling (existing code)
+            $dataArray = collect($attributes)->map(function ($options, $attr) {
+                return "                \"{$attr}\" => \$request->{$attr},";
+            })->implode("\n");
 
-    protected function generateUpdateMethod(string $name, array $attributes): string
+            return <<<METHOD
+    public function store(\$request)
+    {
+        try {
+            Log::info('{$name} store request', \$request->all());
+            \${$lower} = [
+$dataArray
+            ];
+            \$created{$name} = \$this->{$lower}Repository->store(\${$lower});
+            Log::info('{$name} created successfully', ['id' => \$created{$name}->id]);
+            return \$this->returnData(__('messages.{$lower}.create_success'), 201, new {$name}Resource(\$created{$name}));
+        } catch (\Exception \$e) {
+            Log::error('{$name} Create Error', ['error' => \$e->getMessage()]);
+            return \$this->returnError(__('messages.{$lower}.create_failed'), 500);
+        }
+    }
+METHOD;
+        }
+    }
+    protected function generateUpdateMethod(string $name, array $attributes, bool $hasImageAttributes): string
     {
         $lower = strtolower($name);
         $imageAttributes = ['image', 'photo', 'plan_image', 'icon'];
-        $imageAttribute = array_key_first(array_intersect(array_keys($attributes), $imageAttributes));
+        $imageFields = array_intersect(array_keys($attributes), $imageAttributes);
 
-        $imageLogic = $imageAttribute ? "\${$lower}Image = \$this->updateImage(\$request, '{$imageAttribute}', '{$name}/Images', \${$lower}->{$imageAttribute});" : '';
-        $attributeUpdates = collect($attributes)->map(function ($options, $attr) use ($imageAttribute, $lower) {
-            return $attr === $imageAttribute
-                ? "            \${$lower}->{$attr} = \${$lower}Image ?? \${$lower}->{$attr};"
-                : "            \${$lower}->{$attr} = \$request->$attr ?? \${$lower}->{$attr};";
-        })->implode("\n");
+        if ($hasImageAttributes && !empty($imageFields)) {
+            $imageCode = "";
+            $updateCode = "";
 
-        return <<<METHOD
+            foreach ($imageFields as $field) {
+                $imageCode .= "            \${$lower}{$this->pascalCase($field)} = \$this->updateImage(\$request, '{$field}', '{$name}/Images', \${$lower}->{$field});\n";
+                $updateCode .= "            \${$lower}->{$field} = \${$lower}{$this->pascalCase($field)} ?? \${$lower}->{$field};\n";
+            }
+
+            // Add non-image attributes
+            foreach ($attributes as $attr => $options) {
+                if (!in_array($attr, $imageFields)) {
+                    $updateCode .= "            \${$lower}->{$attr} = \$request->{$attr} ?? \${$lower}->{$attr};\n";
+                }
+            }
+
+            return <<<METHOD
     public function update(\$request, \${$lower})
     {
         try {
             Log::info('{$name} update request', ['id' => \${$lower}->id, 'data' => \$request->all()]);
-            {$imageLogic}
-{$attributeUpdates}
+$imageCode
+$updateCode
             \$this->{$lower}Repository->update(\${$lower});
             Log::info('{$name} updated successfully', ['id' => \${$lower}->id]);
-            return \$this->success(__('messages.{$lower}.update_success'), 200);
+            return \$this->returnData(__('messages.{$lower}.update_success'), 200, new {$name}Resource(\${$lower}));
         } catch (\Exception \$e) {
             Log::error('{$name} Update Error', ['error' => \$e->getMessage()]);
             \$this->returnError(__('messages.{$lower}.update_failed'), 500);
         }
     }
 METHOD;
-    }
+        } else {
+            // Non-image attributes handling (existing code)
+            $attributeUpdates = collect($attributes)->map(function ($options, $attr) use ($lower) {
+                return "            \${$lower}->{$attr} = \$request->{$attr} ?? \${$lower}->{$attr};";
+            })->implode("\n");
 
-    protected function generateDeleteMethod(string $name, array $attributes): string
+            return <<<METHOD
+    public function update(\$request, \${$lower})
+    {
+        try {
+            Log::info('{$name} update request', ['id' => \${$lower}->id, 'data' => \$request->all()]);
+$attributeUpdates
+            \$this->{$lower}Repository->update(\${$lower});
+            Log::info('{$name} updated successfully', ['id' => \${$lower}->id]);
+            return \$this->returnData(__('messages.{$lower}.update_success'), 200, new {$name}Resource(\${$lower}));
+        } catch (\Exception \$e) {
+            Log::error('{$name} Update Error', ['error' => \$e->getMessage()]);
+            \$this->returnError(__('messages.{$lower}.update_failed'), 500);
+        }
+    }
+METHOD;
+        }
+    }
+    protected function generateDeleteMethod(string $name, array $attributes, bool $hasImageAttributes): string
     {
         $lower = strtolower($name);
         $imageAttributes = ['image', 'photo', 'plan_image', 'icon'];
-        $imageAttribute = array_key_first(array_intersect(array_keys($attributes), $imageAttributes));
-        $deleteImageLogic = $imageAttribute ? "\$this->deleteImage(\${$lower}->{$imageAttribute});" : '';
+        $imageFields = array_intersect(array_keys($attributes), $imageAttributes);
 
-        return <<<METHOD
+        if ($hasImageAttributes && !empty($imageFields)) {
+            $deleteCode = "";
+
+            foreach ($imageFields as $field) {
+                $deleteCode .= "            \$this->deleteImage(\${$lower}->{$field});\n";
+            }
+
+            return <<<METHOD
     public function delete(\${$lower})
     {
         try {
             Log::info('{$name} delete request', ['id' => \${$lower}->id]);
-            {$deleteImageLogic}
+$deleteCode
             \$this->{$lower}Repository->delete(\${$lower});
             Log::info('{$name} deleted successfully', ['id' => \${$lower}->id]);
             return \$this->success(__('messages.{$lower}.delete_success'), 204);
@@ -294,8 +372,23 @@ METHOD;
         }
     }
 METHOD;
+        } else {
+            return <<<METHOD
+    public function delete(\${$lower})
+    {
+        try {
+            Log::info('{$name} delete request', ['id' => \${$lower}->id]);
+            \$this->{$lower}Repository->delete(\${$lower});
+            Log::info('{$name} deleted successfully', ['id' => \${$lower}->id]);
+            return \$this->success(__('messages.{$lower}.delete_success'), 204);
+        } catch (\Exception \$e) {
+            Log::error('{$name} Delete Error', ['error' => \$e->getMessage()]);
+            \$this->returnError(__('messages.{$lower}.delete_failed'), 500);
+        }
     }
-
+METHOD;
+        }
+    }
     protected function generateCustomServiceMethod(array $method, string $name): string
     {
         $return = match ($method['returnType']) {
@@ -355,5 +448,12 @@ class ServiceServiceProvider extends ServiceProvider
 }
 EOF;
         File::put(app_path('Providers/ServiceServiceProvider.php'), $content);
+    }
+    protected function pascalCase($string): string
+    {
+        // First convert to camelCase
+        $string = lcfirst(str_replace(' ', '', ucwords(str_replace('_', ' ', $string))));
+        // Then convert to PascalCase
+        return ucfirst($string);
     }
 }

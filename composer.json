@@ -3,7 +3,7 @@
   "description": "A Laravel package to generate complete project structure with repository pattern",
   "type": "library",
   "license": "MIT",
-  "versions": "1.0.3",
+  "versions": "1.1",
   "authors": [
     {
       "name": "Islam Walied",

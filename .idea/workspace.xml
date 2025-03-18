@@ -6,7 +6,9 @@
   <component name="ChangeListManager">
     <list default="true" id="c3d555f6-69b5-4bdf-b9c3-b324fc8c4242" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/OneClickProject/src/OneClickProjectServiceProvider.php" beforeDir="false" afterPath="$PROJECT_DIR$/OneClickProject/src/OneClickProjectServiceProvider.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/OneClickProject/src/Generators/RequestGenerator.php" beforeDir="false" afterPath="$PROJECT_DIR$/OneClickProject/src/Generators/RequestGenerator.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/OneClickProject/src/Generators/ServiceGenerator.php" beforeDir="false" afterPath="$PROJECT_DIR$/OneClickProject/src/Generators/ServiceGenerator.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/composer.json" beforeDir="false" afterPath="$PROJECT_DIR$/composer.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -192,11 +194,22 @@
       <workItem from="1742154482108" duration="6000" />
       <workItem from="1742155802729" duration="136000" />
       <workItem from="1742306488561" duration="457000" />
-      <workItem from="1742308461475" duration="683000" />
+      <workItem from="1742308461475" duration="4408000" />
     </task>
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="php">
+          <url>file://$PROJECT_DIR$/OneClickProject/src/Commands/OneClickProject.php</url>
+          <line>15</line>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
   </component>
 </project>

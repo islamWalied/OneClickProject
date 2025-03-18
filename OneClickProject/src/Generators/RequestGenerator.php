@@ -62,7 +62,7 @@ class RequestGenerator
 
             $type = $options['type'] ?? 'string';
             if (in_array($attribute, ['image', 'photo', 'plan_image'])) {
-                return "'$attribute' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:5120'";
+                return "'$attribute' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:10240'";
             }
 
             return match ($type) {
